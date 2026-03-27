@@ -101,9 +101,3 @@ ServerData/
 
 # Auto-generated scenes by play mode tests
 [Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
-
-# Burst compiler cache binaries (large .dylib/.dll/.so files)
-[Ll]ibrary/PackageCache/com.unity.burst*/
-*.dylib
-*.dll
-*.so
