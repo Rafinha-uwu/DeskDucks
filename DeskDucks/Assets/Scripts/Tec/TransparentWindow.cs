@@ -7,11 +7,14 @@ public class TransparentWindow : MonoBehaviour
     [DllImport("user32.dll")]
     private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMargins);
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, uint dwNewLong);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMargins);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct MARGINS
@@ -26,13 +29,33 @@ public class TransparentWindow : MonoBehaviour
     const uint WS_EX_LAYERED = 0x00080000;
     const uint WS_EX_TRANSPARENT = 0x00000020;
 
+    private IntPtr hwnd;
+    private uint originalStyle;
+
     void Start()
     {
-        IntPtr hwnd = FindWindow(null, Application.productName);
+        hwnd = FindWindow(null, Application.productName);
 
-        SetWindowLong(hwnd, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT);
+        // ? GET CURRENT STYLE (IMPORTANT)
+        originalStyle = (uint)GetWindowLong(hwnd, GWL_EXSTYLE);
 
+        // Ensure layered is enabled but KEEP everything else
+        SetWindowLong(hwnd, GWL_EXSTYLE, originalStyle | WS_EX_LAYERED);
+
+        // Extend frame (transparency)
         MARGINS margins = new MARGINS { cxLeftWidth = -1 };
         DwmExtendFrameIntoClientArea(hwnd, ref margins);
+    }
+
+    public void SetClickThrough(bool value)
+    {
+        if (value)
+        {
+            SetWindowLong(hwnd, GWL_EXSTYLE, originalStyle | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+        }
+        else
+        {
+            SetWindowLong(hwnd, GWL_EXSTYLE, originalStyle | WS_EX_LAYERED);
+        }
     }
 }
