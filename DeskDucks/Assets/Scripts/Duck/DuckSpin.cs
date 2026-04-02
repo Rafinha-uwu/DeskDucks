@@ -10,6 +10,9 @@ public class DuckSpin : MonoBehaviour
     public float spinSpeed = 720f;
     public float returnSpeed = 8f;
 
+    [Header("Facing")]
+    public float minVelocityToFlip = 0.05f;
+
     private SimpleGravity gravity;
 
     void Awake()
@@ -22,7 +25,26 @@ public class DuckSpin : MonoBehaviour
 
     void Update()
     {
+        HandleAirFacing();
         HandleSpin();
+    }
+
+    void HandleAirFacing()
+    {
+        if (visualRoot == null)
+            return;
+
+        if (gravity.IsGrounded)
+            return;
+
+        float vx = gravity.Velocity.x;
+
+        if (Mathf.Abs(vx) < minVelocityToFlip)
+            return;
+
+        Vector3 scale = visualRoot.localScale;
+        scale.x = Mathf.Abs(scale.x) * (vx < 0f ? -1f : 1f);
+        visualRoot.localScale = scale;
     }
 
     void HandleSpin()
