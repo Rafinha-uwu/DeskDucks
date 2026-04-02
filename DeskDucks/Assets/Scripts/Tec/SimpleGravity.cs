@@ -1,26 +1,36 @@
 using UnityEngine;
 
-[RequireComponent(typeof(SpriteRenderer))]
+[RequireComponent(typeof(DuckBounds))]
 public class SimpleGravity : MonoBehaviour
 {
+    [Header("Physics")]
     public float gravity = -20f;
     public float groundOffset = 0.35f;
     public float friction = 6f;
 
-    [Header("Bounce")]
+    [Header("Wall / Ceiling Bounce")]
     public float sideBounceMultiplier = 0.8f;
     public float topBounceMultiplier = 0.5f;
 
+    [Header("Ground Bounce")]
+    public bool enableGroundBounce = true;
+    public float groundBounceMultiplier = 0.18f;
+    public float minFallSpeedForGroundBounce = 2.5f;
+
     private Vector2 velocity;
-    private SpriteRenderer sr;
+    private Camera mainCamera;
+    private DuckBounds duckBounds;
+
     private bool isGrounded;
+    private bool canGroundBounce = true;
 
     public Vector2 Velocity => velocity;
     public bool IsGrounded => isGrounded;
 
     void Awake()
     {
-        sr = GetComponent<SpriteRenderer>();
+        mainCamera = Camera.main;
+        duckBounds = GetComponent<DuckBounds>();
     }
 
     void Update()
@@ -36,7 +46,6 @@ public class SimpleGravity : MonoBehaviour
 
         isGrounded = false;
 
-        // LEFT WALL
         if (pos.x < minX)
         {
             pos.x = minX;
@@ -45,7 +54,6 @@ public class SimpleGravity : MonoBehaviour
                 velocity.x = -velocity.x * sideBounceMultiplier;
         }
 
-        // RIGHT WALL
         if (pos.x > maxX)
         {
             pos.x = maxX;
@@ -54,7 +62,6 @@ public class SimpleGravity : MonoBehaviour
                 velocity.x = -velocity.x * sideBounceMultiplier;
         }
 
-        // TOP
         if (pos.y > topY)
         {
             pos.y = topY;
@@ -63,14 +70,30 @@ public class SimpleGravity : MonoBehaviour
                 velocity.y = -velocity.y * topBounceMultiplier;
         }
 
-        // GROUND
         if (pos.y <= groundY)
         {
             pos.y = groundY;
-            velocity.y = 0f;
-            isGrounded = true;
 
-            velocity.x = Mathf.Lerp(velocity.x, 0f, friction * Time.deltaTime);
+            bool shouldGroundBounce =
+                enableGroundBounce &&
+                canGroundBounce &&
+                velocity.y < -minFallSpeedForGroundBounce;
+
+            if (shouldGroundBounce)
+            {
+                velocity.y = -velocity.y * groundBounceMultiplier;
+                canGroundBounce = false;
+            }
+            else
+            {
+                velocity.y = 0f;
+                isGrounded = true;
+                velocity.x = Mathf.Lerp(velocity.x, 0f, friction * Time.deltaTime);
+            }
+        }
+        else
+        {
+            canGroundBounce = true;
         }
 
         transform.position = pos;
@@ -78,39 +101,41 @@ public class SimpleGravity : MonoBehaviour
 
     float GetGroundY()
     {
-        float bottom = Camera.main.ViewportToWorldPoint(new Vector3(0f, 0f, 0f)).y;
-        return bottom + sr.bounds.extents.y + groundOffset;
+        float bottom = mainCamera.ViewportToWorldPoint(new Vector3(0f, 0f, 0f)).y;
+        return bottom + duckBounds.halfHeight + groundOffset;
     }
 
     float GetTopY()
     {
-        float top = Camera.main.ViewportToWorldPoint(new Vector3(0f, 1f, 0f)).y;
-        return top - sr.bounds.extents.y;
+        float top = mainCamera.ViewportToWorldPoint(new Vector3(0f, 1f, 0f)).y;
+        return top - duckBounds.halfHeight;
     }
 
     float GetMinX()
     {
-        float left = Camera.main.ViewportToWorldPoint(new Vector3(0f, 0f, 0f)).x;
-        return left + sr.bounds.extents.x;
+        float left = mainCamera.ViewportToWorldPoint(new Vector3(0f, 0f, 0f)).x;
+        return left + duckBounds.halfWidth;
     }
 
     float GetMaxX()
     {
-        float right = Camera.main.ViewportToWorldPoint(new Vector3(1f, 0f, 0f)).x;
-        return right - sr.bounds.extents.x;
+        float right = mainCamera.ViewportToWorldPoint(new Vector3(1f, 0f, 0f)).x;
+        return right - duckBounds.halfWidth;
     }
 
     public void SetVelocity(Vector2 newVelocity)
     {
         velocity = newVelocity;
+        isGrounded = false;
     }
 
     public void ResetVelocity()
     {
         velocity = Vector2.zero;
+        isGrounded = false;
     }
 
-    public void SetEnabled(bool value)
+    public void SetGravityEnabled(bool value)
     {
         enabled = value;
     }

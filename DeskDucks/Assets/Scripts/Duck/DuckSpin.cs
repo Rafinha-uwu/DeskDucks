@@ -3,7 +3,11 @@ using UnityEngine;
 [RequireComponent(typeof(SimpleGravity))]
 public class DuckSpin : MonoBehaviour
 {
-    public float spinSpeed = 720f; // degrees per second
+    [Header("References")]
+    public Transform visualRoot;
+
+    [Header("Spin")]
+    public float spinSpeed = 720f;
     public float returnSpeed = 8f;
 
     private SimpleGravity gravity;
@@ -11,6 +15,9 @@ public class DuckSpin : MonoBehaviour
     void Awake()
     {
         gravity = GetComponent<SimpleGravity>();
+
+        if (visualRoot == null)
+            visualRoot = transform.Find("VisualRoot");
     }
 
     void Update()
@@ -20,24 +27,23 @@ public class DuckSpin : MonoBehaviour
 
     void HandleSpin()
     {
-        // ?? SPIN while going UP and not grounded
+        if (visualRoot == null)
+            return;
+
         if (!gravity.IsGrounded && gravity.Velocity.y > 0f)
         {
             float direction = Mathf.Sign(gravity.Velocity.x);
 
-            // if no horizontal movement, default spin direction
-            if (direction == 0f) direction = 1f;
+            if (direction == 0f)
+                direction = 1f;
 
-            transform.Rotate(0f, 0f, -direction * spinSpeed * Time.deltaTime);
+            visualRoot.Rotate(0f, 0f, -direction * spinSpeed * Time.deltaTime);
         }
         else
         {
-            // ?? Return to upright (0 rotation)
-            Quaternion target = Quaternion.identity;
-
-            transform.rotation = Quaternion.Lerp(
-                transform.rotation,
-                target,
+            visualRoot.localRotation = Quaternion.Lerp(
+                visualRoot.localRotation,
+                Quaternion.identity,
                 returnSpeed * Time.deltaTime
             );
         }

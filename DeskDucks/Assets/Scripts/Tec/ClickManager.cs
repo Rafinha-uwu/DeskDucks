@@ -13,18 +13,30 @@ public class ClickManager : MonoBehaviour
         public int y;
     }
 
+    [Header("References")]
     public LayerMask clickableLayer;
-    public TransparentWindow window;
+    public WindowController window;
+
+    [Header("Drag Settings")]
     public float dragThreshold = 0.15f;
     public float throwMultiplier = 0.35f;
 
-    private IClickable current;
+    private Camera mainCamera;
+
+    private IClickable currentClickable;
+    private IDraggable currentDraggable;
+
     private bool dragging;
     private bool isClickCandidate;
 
     private Vector2 mouseDownWorld;
     private Vector2 lastWorld;
     private Vector2 velocity;
+
+    void Awake()
+    {
+        mainCamera = Camera.main;
+    }
 
     void OnEnable()
     {
@@ -42,7 +54,7 @@ public class ClickManager : MonoBehaviour
     {
         Vector2 world = GetGlobalMouseWorld();
 
-        if (current == null)
+        if (currentClickable == null && currentDraggable == null)
         {
             Collider2D hoverHit = Physics2D.OverlapPoint(world, clickableLayer);
             window.SetClickThrough(hoverHit == null);
@@ -53,16 +65,16 @@ public class ClickManager : MonoBehaviour
 
         velocity = (world - lastWorld) / Mathf.Max(Time.deltaTime, 0.0001f);
 
-        if (!dragging && Vector2.Distance(world, mouseDownWorld) > dragThreshold)
+        if (!dragging && currentDraggable != null && Vector2.Distance(world, mouseDownWorld) > dragThreshold)
         {
             dragging = true;
             isClickCandidate = false;
-            current.OnDragStart(mouseDownWorld);
+            currentDraggable.OnDragStart(mouseDownWorld);
         }
 
-        if (dragging)
+        if (dragging && currentDraggable != null)
         {
-            current.OnDrag(world);
+            currentDraggable.OnDrag(world);
         }
 
         lastWorld = world;
@@ -75,17 +87,16 @@ public class ClickManager : MonoBehaviour
 
         if (hit == null)
         {
-            current = null;
-            dragging = false;
-            isClickCandidate = false;
+            ClearInteractionState();
             return;
         }
 
-        current = hit.GetComponent<IClickable>();
-        if (current == null)
+        currentClickable = hit.GetComponent<IClickable>();
+        currentDraggable = hit.GetComponent<IDraggable>();
+
+        if (currentClickable == null && currentDraggable == null)
         {
-            dragging = false;
-            isClickCandidate = false;
+            ClearInteractionState();
             return;
         }
 
@@ -94,24 +105,27 @@ public class ClickManager : MonoBehaviour
         velocity = Vector2.zero;
 
         dragging = false;
-        isClickCandidate = true;
+        isClickCandidate = currentClickable != null;
     }
 
     void HandleUp(Vector2 screenPos)
     {
-        if (current != null)
+        if (isClickCandidate && currentClickable != null)
         {
-            if (isClickCandidate)
-            {
-                current.OnClick();
-            }
-            else if (dragging)
-            {
-                current.OnDragEnd(velocity * throwMultiplier);
-            }
+            currentClickable.OnClick();
+        }
+        else if (dragging && currentDraggable != null)
+        {
+            currentDraggable.OnDragEnd(velocity * throwMultiplier);
         }
 
-        current = null;
+        ClearInteractionState();
+    }
+
+    void ClearInteractionState()
+    {
+        currentClickable = null;
+        currentDraggable = null;
         dragging = false;
         isClickCandidate = false;
     }
@@ -125,6 +139,6 @@ public class ClickManager : MonoBehaviour
     Vector2 ScreenToWorld(Vector2 globalScreenPos)
     {
         float flippedY = Screen.height - globalScreenPos.y;
-        return Camera.main.ScreenToWorldPoint(new Vector3(globalScreenPos.x, flippedY, 0f));
+        return mainCamera.ScreenToWorldPoint(new Vector3(globalScreenPos.x, flippedY, 0f));
     }
 }
