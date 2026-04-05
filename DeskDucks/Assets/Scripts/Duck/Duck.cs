@@ -5,6 +5,7 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
 {
     private SimpleGravity gravity;
     private DuckWander wander;
+    private DuckQuack quack;
 
     private Vector3 dragOffset;
     private bool waitingForLandingReset;
@@ -13,6 +14,7 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
     {
         gravity = GetComponent<SimpleGravity>();
         wander = GetComponent<DuckWander>();
+        quack = GetComponent<DuckQuack>();
     }
 
     void Update()
@@ -34,7 +36,13 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
 
     public void OnClick()
     {
-        Application.Quit(); // keep for testing
+        if (quack == null)
+            return;
+
+        if (gravity.IsGrounded)
+            quack.TriggerGroundClickQuack();
+        else
+            quack.TriggerAirClickQuack();
     }
 
     public void OnDragStart(Vector2 worldPos)
@@ -60,7 +68,6 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
         gravity.SetGravityEnabled(true);
         gravity.SetVelocity(velocity);
 
-        // Wait until the duck lands before resetting wander
         waitingForLandingReset = true;
     }
 }

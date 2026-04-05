@@ -1,8 +1,18 @@
+using System;
 using UnityEngine;
 
 [RequireComponent(typeof(DuckBounds))]
 public class SimpleGravity : MonoBehaviour
 {
+    public enum BounceType
+    {
+        SideWall,
+        Ceiling,
+        Ground
+    }
+
+    public event Action<BounceType, float> OnBounce;
+
     [Header("Physics")]
     public float gravity = -20f;
     public float groundOffset = 0.35f;
@@ -48,26 +58,41 @@ public class SimpleGravity : MonoBehaviour
 
         if (pos.x < minX)
         {
+            float impactSpeed = Mathf.Abs(velocity.x);
+
             pos.x = minX;
 
             if (velocity.x < 0f)
+            {
                 velocity.x = -velocity.x * sideBounceMultiplier;
+                OnBounce?.Invoke(BounceType.SideWall, impactSpeed);
+            }
         }
 
         if (pos.x > maxX)
         {
+            float impactSpeed = Mathf.Abs(velocity.x);
+
             pos.x = maxX;
 
             if (velocity.x > 0f)
+            {
                 velocity.x = -velocity.x * sideBounceMultiplier;
+                OnBounce?.Invoke(BounceType.SideWall, impactSpeed);
+            }
         }
 
         if (pos.y > topY)
         {
+            float impactSpeed = Mathf.Abs(velocity.y);
+
             pos.y = topY;
 
             if (velocity.y > 0f)
+            {
                 velocity.y = -velocity.y * topBounceMultiplier;
+                OnBounce?.Invoke(BounceType.Ceiling, impactSpeed);
+            }
         }
 
         if (pos.y <= groundY)
@@ -81,8 +106,12 @@ public class SimpleGravity : MonoBehaviour
 
             if (shouldGroundBounce)
             {
+                float impactSpeed = Mathf.Abs(velocity.y);
+
                 velocity.y = -velocity.y * groundBounceMultiplier;
                 canGroundBounce = false;
+
+                OnBounce?.Invoke(BounceType.Ground, impactSpeed);
             }
             else
             {
