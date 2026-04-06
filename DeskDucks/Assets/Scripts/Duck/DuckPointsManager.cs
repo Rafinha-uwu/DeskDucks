@@ -6,10 +6,12 @@ public class DuckPointsManager : MonoBehaviour
     public static DuckPointsManager Instance { get; private set; }
 
     [Header("UI")]
-    public TMP_Text pointsText;
+    [SerializeField] private TMP_Text pointsText;
 
     [Header("Points")]
-    public int quackPoints = 0;
+    [SerializeField] private int quackPoints = 0;
+
+    public int QuackPoints => quackPoints;
 
     void Awake()
     {
@@ -26,6 +28,18 @@ public class DuckPointsManager : MonoBehaviour
     public void AddPoints(int amount)
     {
         quackPoints += amount;
+        UpdateUI();
+    }
+
+    public void SetPoints(int amount)
+    {
+        quackPoints = amount;
+        UpdateUI();
+    }
+
+    public void ResetPoints()
+    {
+        quackPoints = 0;
         UpdateUI();
     }
 

@@ -29,20 +29,20 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
 
         if (wander != null)
         {
-            wander.ForceIdle();
-            wander.enableWander = true;
+            wander.ResetToIdle();
+            wander.SetWanderEnabled(true);
         }
     }
 
     public void OnClick()
     {
-        if (quack == null)
+        if (quack == null || gravity == null)
             return;
 
-        if (gravity.IsGrounded)
-            quack.TriggerGroundClickQuack();
-        else
-            quack.TriggerAirClickQuack();
+        if (!gravity.IsGrounded)
+            return;
+
+        quack.TriggerGroundClickQuack();
     }
 
     public void OnDragStart(Vector2 worldPos)
@@ -51,11 +51,10 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
 
         gravity.ResetVelocity();
         gravity.SetGravityEnabled(false);
-
         waitingForLandingReset = false;
 
         if (wander != null)
-            wander.enableWander = false;
+            wander.SetWanderEnabled(false);
     }
 
     public void OnDrag(Vector2 worldPos)
@@ -67,7 +66,6 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
     {
         gravity.SetGravityEnabled(true);
         gravity.SetVelocity(velocity);
-
         waitingForLandingReset = true;
     }
 }

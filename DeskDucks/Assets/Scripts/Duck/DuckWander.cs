@@ -8,46 +8,36 @@ public class DuckWander : MonoBehaviour
     public bool enableWander = true;
 
     [Header("References")]
-    public Transform visualRoot;
+    [SerializeField] private Transform visualRoot;
 
     [Header("Walk Speed")]
-    public float minSpeed = 0.5f;
-    public float maxSpeed = 2f;
+    [SerializeField] private float minSpeed = 0.5f;
+    [SerializeField] private float maxSpeed = 2f;
 
     [Header("Walk Duration")]
-    public float minWalkTime = 1f;
-    public float maxWalkTime = 4f;
+    [SerializeField] private float minWalkTime = 1f;
+    [SerializeField] private float maxWalkTime = 4f;
 
     [Header("Idle Duration")]
-    public float minIdleTime = 0.5f;
-    public float maxIdleTime = 2.5f;
+    [SerializeField] private float minIdleTime = 0.5f;
+    [SerializeField] private float maxIdleTime = 2.5f;
 
     [Header("Stop Smoothing")]
-    public float stopDeceleration = 4f;
+    [SerializeField] private float stopDeceleration = 4f;
 
     [Header("Random Direction Changes")]
-    public float directionChangeChancePerSecond = 0.25f;
+    [SerializeField] private float directionChangeChancePerSecond = 0.25f;
 
     [Header("Random Jump Chance")]
-    public float jumpChancePerSecond = 0.12f;
+    [SerializeField] private float jumpChancePerSecond = 0.12f;
 
     [Header("Random Jump Height")]
-    public float minJumpForce = 3f;
-    public float maxJumpForce = 6f;
+    [SerializeField] private float minJumpForce = 3f;
+    [SerializeField] private float maxJumpForce = 6f;
 
     [Header("Random Jump Forward Boost")]
-    public float minJumpForwardMultiplier = 1.1f;
-    public float maxJumpForwardMultiplier = 1.8f;
-
-    private SimpleGravity gravity;
-    private DuckBounds duckBounds;
-    private Camera mainCamera;
-
-    private float timer;
-    private float currentSpeed;
-    private int direction;
-
-    private State currentState;
+    [SerializeField] private float minJumpForwardMultiplier = 1.1f;
+    [SerializeField] private float maxJumpForwardMultiplier = 1.8f;
 
     private enum State
     {
@@ -56,11 +46,20 @@ public class DuckWander : MonoBehaviour
         SlowingDown
     }
 
+    private SimpleGravity gravity;
+    private DuckBounds duckBounds;
+    private GameplaySpaceManager gameplaySpace;
+
+    private State currentState;
+    private float stateTimer;
+    private float currentSpeed;
+    private int direction = 1;
+
     void Awake()
     {
         gravity = GetComponent<SimpleGravity>();
         duckBounds = GetComponent<DuckBounds>();
-        mainCamera = Camera.main;
+        gameplaySpace = GameplaySpaceManager.Instance;
 
         if (visualRoot == null)
             visualRoot = transform.Find("VisualRoot");
@@ -68,7 +67,7 @@ public class DuckWander : MonoBehaviour
 
     void Start()
     {
-        ForceIdle();
+        ResetToIdle();
     }
 
     void Update()
@@ -79,64 +78,82 @@ public class DuckWander : MonoBehaviour
         if (!gravity.IsGrounded)
             return;
 
-        timer -= Time.deltaTime;
+        if (gameplaySpace == null)
+            gameplaySpace = GameplaySpaceManager.Instance;
+
+        stateTimer -= Time.deltaTime;
 
         switch (currentState)
         {
             case State.Idle:
-                if (timer <= 0f)
-                    PickWalk();
+                if (stateTimer <= 0f)
+                    EnterWalkingState();
                 break;
 
             case State.Walking:
-                HandleMovement();
-                HandleRandomDirectionChange();
-                HandleRandomJump();
-
-                if (timer <= 0f)
-                    BeginSlowDown();
+                UpdateWalking();
+                if (stateTimer <= 0f)
+                    EnterSlowingDownState();
                 break;
 
             case State.SlowingDown:
-                HandleSlowDown();
+                UpdateSlowingDown();
                 break;
         }
     }
 
-    void HandleMovement()
+    public void SetWanderEnabled(bool value)
     {
-        Vector2 vel = gravity.Velocity;
-        vel.x = direction * currentSpeed;
-        gravity.SetVelocity(vel);
-
-        FlipVisual(direction);
-        HandleScreenEdges();
-
-        // FUTURE: walking animation speed here
-        // animator.speed = currentSpeed;
+        enableWander = value;
     }
 
-    void HandleSlowDown()
+    public void ResetToIdle()
+    {
+        currentState = State.Idle;
+        stateTimer = Random.Range(minIdleTime, maxIdleTime);
+        currentSpeed = 0f;
+        gravity.StopHorizontalMovement();
+    }
+
+    void EnterWalkingState()
+    {
+        currentState = State.Walking;
+        stateTimer = Random.Range(minWalkTime, maxWalkTime);
+        currentSpeed = Random.Range(minSpeed, maxSpeed);
+        direction = Random.value < 0.5f ? -1 : 1;
+
+        FlipVisual(direction);
+    }
+
+    void EnterSlowingDownState()
+    {
+        currentState = State.SlowingDown;
+    }
+
+    void UpdateWalking()
+    {
+        gravity.SetHorizontalVelocity(direction * currentSpeed);
+
+        HandleScreenEdges();
+        HandleRandomDirectionChange();
+        HandleRandomJump();
+        FlipVisual(direction);
+    }
+
+    void UpdateSlowingDown()
     {
         currentSpeed = Mathf.MoveTowards(currentSpeed, 0f, stopDeceleration * Time.deltaTime);
-
-        Vector2 vel = gravity.Velocity;
-        vel.x = direction * currentSpeed;
-        gravity.SetVelocity(vel);
-
+        gravity.SetHorizontalVelocity(direction * currentSpeed);
         FlipVisual(direction);
 
         if (currentSpeed <= 0.01f)
-            PickIdleImmediate();
+            ResetToIdle();
     }
 
     void HandleRandomDirectionChange()
     {
         if (Random.value < directionChangeChancePerSecond * Time.deltaTime)
-        {
             direction *= -1;
-            FlipVisual(direction);
-        }
     }
 
     void HandleRandomJump()
@@ -144,63 +161,24 @@ public class DuckWander : MonoBehaviour
         if (Random.value >= jumpChancePerSecond * Time.deltaTime)
             return;
 
-        Vector2 vel = gravity.Velocity;
-
         float jumpY = Random.Range(minJumpForce, maxJumpForce);
         float jumpForward = currentSpeed * Random.Range(minJumpForwardMultiplier, maxJumpForwardMultiplier);
 
-        vel.x = direction * jumpForward;
-        vel.y = jumpY;
-
-        gravity.SetVelocity(vel);
-
-        // FUTURE: trigger jump animation here
+        gravity.SetVelocity(new Vector2(direction * jumpForward, jumpY));
     }
 
     void HandleScreenEdges()
     {
-        float left = mainCamera.ViewportToWorldPoint(new Vector3(0f, 0f, 0f)).x;
-        float right = mainCamera.ViewportToWorldPoint(new Vector3(1f, 0f, 0f)).x;
+        if (gameplaySpace == null || duckBounds == null)
+            return;
 
-        if (transform.position.x <= left + duckBounds.halfWidth)
-        {
+        float left = gameplaySpace.GetMinX(duckBounds.ScaledHalfWidth);
+        float right = gameplaySpace.GetMaxX(duckBounds.ScaledHalfWidth);
+
+        if (transform.position.x <= left)
             direction = 1;
-            FlipVisual(direction);
-        }
-        else if (transform.position.x >= right - duckBounds.halfWidth)
-        {
+        else if (transform.position.x >= right)
             direction = -1;
-            FlipVisual(direction);
-        }
-    }
-
-    void PickWalk()
-    {
-        currentState = State.Walking;
-        timer = Random.Range(minWalkTime, maxWalkTime);
-        currentSpeed = Random.Range(minSpeed, maxSpeed);
-        direction = Random.value < 0.5f ? -1 : 1;
-
-        FlipVisual(direction);
-
-        // FUTURE: enter walking animation here
-    }
-
-    void BeginSlowDown()
-    {
-        currentState = State.SlowingDown;
-    }
-
-    void PickIdleImmediate()
-    {
-        currentState = State.Idle;
-        timer = Random.Range(minIdleTime, maxIdleTime);
-
-        Vector2 vel = gravity.Velocity;
-        vel.x = 0f;
-        gravity.SetVelocity(vel);
-
-        // FUTURE: enter idle animation here
     }
 
     void FlipVisual(int dir)
@@ -212,22 +190,4 @@ public class DuckWander : MonoBehaviour
         scale.x = Mathf.Abs(scale.x) * (dir < 0 ? -1f : 1f);
         visualRoot.localScale = scale;
     }
-
-    public void ForceIdle()
-    {
-        currentState = State.Idle;
-        timer = Random.Range(minIdleTime, maxIdleTime);
-        currentSpeed = 0f;
-
-        Vector2 vel = gravity.Velocity;
-        vel.x = 0f;
-        gravity.SetVelocity(vel);
-    }
-
-    // FUTURE:
-    // Add more default random actions here:
-    // - sleep
-    // - quack
-    // - look around
-    // - peck ground
 }

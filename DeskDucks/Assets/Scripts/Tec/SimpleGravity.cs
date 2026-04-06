@@ -14,22 +14,21 @@ public class SimpleGravity : MonoBehaviour
     public event Action<BounceType, float> OnBounce;
 
     [Header("Physics")]
-    public float gravity = -20f;
-    public float groundOffset = 0.35f;
-    public float friction = 6f;
+    [SerializeField] private float gravity = -20f;
+    [SerializeField] private float friction = 6f;
 
     [Header("Wall / Ceiling Bounce")]
-    public float sideBounceMultiplier = 0.8f;
-    public float topBounceMultiplier = 0.5f;
+    [SerializeField] private float sideBounceMultiplier = 0.8f;
+    [SerializeField] private float topBounceMultiplier = 0.5f;
 
     [Header("Ground Bounce")]
-    public bool enableGroundBounce = true;
-    public float groundBounceMultiplier = 0.18f;
-    public float minFallSpeedForGroundBounce = 2.5f;
+    [SerializeField] private bool enableGroundBounce = true;
+    [SerializeField] private float groundBounceMultiplier = 0.18f;
+    [SerializeField] private float minFallSpeedForGroundBounce = 2.5f;
 
     private Vector2 velocity;
-    private Camera mainCamera;
     private DuckBounds duckBounds;
+    private GameplaySpaceManager gameplaySpace;
 
     private bool isGrounded;
     private bool canGroundBounce = true;
@@ -39,27 +38,32 @@ public class SimpleGravity : MonoBehaviour
 
     void Awake()
     {
-        mainCamera = Camera.main;
         duckBounds = GetComponent<DuckBounds>();
+        gameplaySpace = GameplaySpaceManager.Instance;
     }
 
     void Update()
     {
+        if (gameplaySpace == null)
+            gameplaySpace = GameplaySpaceManager.Instance;
+
+        if (gameplaySpace == null || duckBounds == null)
+            return;
+
         velocity.y += gravity * Time.deltaTime;
 
         Vector3 pos = transform.position + (Vector3)(velocity * Time.deltaTime);
 
-        float minX = GetMinX();
-        float maxX = GetMaxX();
-        float groundY = GetGroundY();
-        float topY = GetTopY();
+        float minX = gameplaySpace.GetMinX(duckBounds.ScaledHalfWidth);
+        float maxX = gameplaySpace.GetMaxX(duckBounds.ScaledHalfWidth);
+        float groundY = gameplaySpace.GetGroundY(duckBounds.ScaledHalfHeight);
+        float topY = gameplaySpace.GetTopY(duckBounds.ScaledHalfHeight);
 
         isGrounded = false;
 
         if (pos.x < minX)
         {
             float impactSpeed = Mathf.Abs(velocity.x);
-
             pos.x = minX;
 
             if (velocity.x < 0f)
@@ -72,7 +76,6 @@ public class SimpleGravity : MonoBehaviour
         if (pos.x > maxX)
         {
             float impactSpeed = Mathf.Abs(velocity.x);
-
             pos.x = maxX;
 
             if (velocity.x > 0f)
@@ -85,7 +88,6 @@ public class SimpleGravity : MonoBehaviour
         if (pos.y > topY)
         {
             float impactSpeed = Mathf.Abs(velocity.y);
-
             pos.y = topY;
 
             if (velocity.y > 0f)
@@ -107,10 +109,8 @@ public class SimpleGravity : MonoBehaviour
             if (shouldGroundBounce)
             {
                 float impactSpeed = Mathf.Abs(velocity.y);
-
                 velocity.y = -velocity.y * groundBounceMultiplier;
                 canGroundBounce = false;
-
                 OnBounce?.Invoke(BounceType.Ground, impactSpeed);
             }
             else
@@ -128,34 +128,26 @@ public class SimpleGravity : MonoBehaviour
         transform.position = pos;
     }
 
-    float GetGroundY()
-    {
-        float bottom = mainCamera.ViewportToWorldPoint(new Vector3(0f, 0f, 0f)).y;
-        return bottom + duckBounds.halfHeight + groundOffset;
-    }
-
-    float GetTopY()
-    {
-        float top = mainCamera.ViewportToWorldPoint(new Vector3(0f, 1f, 0f)).y;
-        return top - duckBounds.halfHeight;
-    }
-
-    float GetMinX()
-    {
-        float left = mainCamera.ViewportToWorldPoint(new Vector3(0f, 0f, 0f)).x;
-        return left + duckBounds.halfWidth;
-    }
-
-    float GetMaxX()
-    {
-        float right = mainCamera.ViewportToWorldPoint(new Vector3(1f, 0f, 0f)).x;
-        return right - duckBounds.halfWidth;
-    }
-
     public void SetVelocity(Vector2 newVelocity)
     {
         velocity = newVelocity;
         isGrounded = false;
+    }
+
+    public void SetHorizontalVelocity(float x)
+    {
+        velocity.x = x;
+    }
+
+    public void SetVerticalVelocity(float y)
+    {
+        velocity.y = y;
+        isGrounded = false;
+    }
+
+    public void StopHorizontalMovement()
+    {
+        velocity.x = 0f;
     }
 
     public void ResetVelocity()
@@ -167,5 +159,35 @@ public class SimpleGravity : MonoBehaviour
     public void SetGravityEnabled(bool value)
     {
         enabled = value;
+    }
+
+    public Vector2 GetNormalizedPosition()
+    {
+        if (gameplaySpace == null)
+            gameplaySpace = GameplaySpaceManager.Instance;
+
+        if (gameplaySpace == null)
+            return Vector2.zero;
+
+        Vector2 worldPosition = isGrounded
+            ? new Vector2(transform.position.x, gameplaySpace.GetGroundY(duckBounds.ScaledHalfHeight))
+            : (Vector2)transform.position;
+
+        return gameplaySpace.WorldToNormalized(worldPosition, duckBounds);
+    }
+
+    public void ApplyNormalizedPosition(Vector2 normalizedPosition, bool grounded)
+    {
+        if (gameplaySpace == null)
+            gameplaySpace = GameplaySpaceManager.Instance;
+
+        if (gameplaySpace == null)
+            return;
+
+        transform.position = gameplaySpace.NormalizedToWorld(normalizedPosition, duckBounds, grounded);
+        isGrounded = grounded;
+
+        if (grounded)
+            velocity.y = 0f;
     }
 }

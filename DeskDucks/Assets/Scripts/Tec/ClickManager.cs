@@ -1,6 +1,10 @@
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
+[RequireComponent(typeof(WindowController))]
+[RequireComponent(typeof(GameplaySpaceManager))]
 public class ClickManager : MonoBehaviour
 {
     [DllImport("user32.dll")]
@@ -14,14 +18,15 @@ public class ClickManager : MonoBehaviour
     }
 
     [Header("References")]
-    public LayerMask clickableLayer;
-    public WindowController window;
+    [SerializeField] private LayerMask clickableLayer;
 
     [Header("Drag Settings")]
-    public float dragThreshold = 0.15f;
-    public float throwMultiplier = 0.35f;
+    [SerializeField] private float dragThreshold = 0.15f;
+    [SerializeField] private float throwMultiplier = 0.35f;
 
-    private Camera mainCamera;
+    private WindowController window;
+    private GameplaySpaceManager gameplaySpace;
+    private EventSystem eventSystem;
 
     private IClickable currentClickable;
     private IDraggable currentDraggable;
@@ -33,9 +38,52 @@ public class ClickManager : MonoBehaviour
     private Vector2 lastWorld;
     private Vector2 velocity;
 
+    private readonly List<RaycastResult> uiRaycastResults = new();
+
     void Awake()
     {
-        mainCamera = Camera.main;
+        window = GetComponent<WindowController>();
+        gameplaySpace = GetComponent<GameplaySpaceManager>();
+        eventSystem = EventSystem.current;
+    }
+
+    void Update()
+    {
+        if (window == null || gameplaySpace == null)
+            return;
+
+        if (eventSystem == null)
+            eventSystem = EventSystem.current;
+
+        Vector2 globalMouseScreen = GetGlobalMouseScreenPosition();
+        Vector2 world = gameplaySpace.GlobalScreenToWorld(globalMouseScreen);
+
+        if (currentClickable == null && currentDraggable == null)
+        {
+            bool isOverUi = IsPointerOverUi(globalMouseScreen);
+            bool isOverWorldClickable = Physics2D.OverlapPoint(world, clickableLayer) != null;
+
+            window.SetClickThrough(!isOverUi && !isOverWorldClickable);
+            return;
+        }
+
+        window.SetClickThrough(false);
+
+        velocity = (world - lastWorld) / Mathf.Max(Time.deltaTime, 0.0001f);
+
+        if (!dragging &&
+            currentDraggable != null &&
+            Vector2.Distance(world, mouseDownWorld) > dragThreshold)
+        {
+            dragging = true;
+            isClickCandidate = false;
+            currentDraggable.OnDragStart(mouseDownWorld);
+        }
+
+        if (dragging && currentDraggable != null)
+            currentDraggable.OnDrag(world);
+
+        lastWorld = world;
     }
 
     void OnEnable()
@@ -50,39 +98,22 @@ public class ClickManager : MonoBehaviour
         GlobalMouseHook.OnMouseUp -= HandleUp;
     }
 
-    void Update()
+    void HandleDown(Vector2 screenPos)
     {
-        Vector2 world = GetGlobalMouseWorld();
+        if (gameplaySpace == null)
+            return;
 
-        if (currentClickable == null && currentDraggable == null)
+        if (eventSystem == null)
+            eventSystem = EventSystem.current;
+
+        if (IsPointerOverUi(screenPos))
         {
-            Collider2D hoverHit = Physics2D.OverlapPoint(world, clickableLayer);
-            window.SetClickThrough(hoverHit == null);
+            ClearInteractionState();
+            window.SetClickThrough(false);
             return;
         }
 
-        window.SetClickThrough(false);
-
-        velocity = (world - lastWorld) / Mathf.Max(Time.deltaTime, 0.0001f);
-
-        if (!dragging && currentDraggable != null && Vector2.Distance(world, mouseDownWorld) > dragThreshold)
-        {
-            dragging = true;
-            isClickCandidate = false;
-            currentDraggable.OnDragStart(mouseDownWorld);
-        }
-
-        if (dragging && currentDraggable != null)
-        {
-            currentDraggable.OnDrag(world);
-        }
-
-        lastWorld = world;
-    }
-
-    void HandleDown(Vector2 screenPos)
-    {
-        Vector2 world = ScreenToWorld(screenPos);
+        Vector2 world = gameplaySpace.GlobalScreenToWorld(screenPos);
         Collider2D hit = Physics2D.OverlapPoint(world, clickableLayer);
 
         if (hit == null)
@@ -103,7 +134,6 @@ public class ClickManager : MonoBehaviour
         mouseDownWorld = world;
         lastWorld = world;
         velocity = Vector2.zero;
-
         dragging = false;
         isClickCandidate = currentClickable != null;
     }
@@ -111,13 +141,9 @@ public class ClickManager : MonoBehaviour
     void HandleUp(Vector2 screenPos)
     {
         if (isClickCandidate && currentClickable != null)
-        {
             currentClickable.OnClick();
-        }
         else if (dragging && currentDraggable != null)
-        {
             currentDraggable.OnDragEnd(velocity * throwMultiplier);
-        }
 
         ClearInteractionState();
     }
@@ -128,17 +154,28 @@ public class ClickManager : MonoBehaviour
         currentDraggable = null;
         dragging = false;
         isClickCandidate = false;
+        velocity = Vector2.zero;
     }
 
-    Vector2 GetGlobalMouseWorld()
+    Vector2 GetGlobalMouseScreenPosition()
     {
         GetCursorPos(out POINT point);
-        return ScreenToWorld(new Vector2(point.x, point.y));
+        return new Vector2(point.x, point.y);
     }
 
-    Vector2 ScreenToWorld(Vector2 globalScreenPos)
+    bool IsPointerOverUi(Vector2 globalScreenPos)
     {
-        float flippedY = Screen.height - globalScreenPos.y;
-        return mainCamera.ScreenToWorldPoint(new Vector3(globalScreenPos.x, flippedY, 0f));
+        if (eventSystem == null)
+            return false;
+
+        PointerEventData pointerData = new(eventSystem)
+        {
+            position = new Vector2(globalScreenPos.x, Screen.height - globalScreenPos.y)
+        };
+
+        uiRaycastResults.Clear();
+        eventSystem.RaycastAll(pointerData, uiRaycastResults);
+
+        return uiRaycastResults.Count > 0;
     }
 }

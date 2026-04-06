@@ -5,32 +5,30 @@ using UnityEngine;
 public class DuckQuack : MonoBehaviour
 {
     [Header("Click Quack")]
-    public float clickQuackDuration = 1f;
-    public int clickQuackPoints = 1;
+    [SerializeField] private float clickQuackDuration = 1f;
+    [SerializeField] private int clickQuackPoints = 1;
 
     [Header("Random Quack")]
-    public bool enableRandomQuacks = true;
-    public float minRandomQuackDelay = 5f;
-    public float maxRandomQuackDelay = 20f;
-    public int randomQuackPoints = 1;
+    [SerializeField] private bool enableRandomQuacks = true;
+    [SerializeField] private float minRandomQuackDelay = 5f;
+    [SerializeField] private float maxRandomQuackDelay = 20f;
+    [SerializeField] private int randomQuackPoints = 1;
 
     [Header("Bounce Points")]
-    public bool enableBouncePoints = true;
+    [SerializeField] private bool enableBouncePoints = true;
 
     private DuckWander wander;
     private SimpleGravity gravity;
 
-    private float clickPauseTimer = 0f;
-    private float randomQuackTimer = 0f;
+    private float clickPauseTimer;
+    private float randomQuackTimer;
 
     public bool IsBusy => clickPauseTimer > 0f;
-    public bool LastClickWasAir { get; private set; }
 
     void Awake()
     {
         wander = GetComponent<DuckWander>();
         gravity = GetComponent<SimpleGravity>();
-
         ResetRandomQuackTimer();
     }
 
@@ -52,31 +50,11 @@ public class DuckQuack : MonoBehaviour
 
     public void TriggerGroundClickQuack()
     {
-        LastClickWasAir = false;
-
-        wander.enableWander = false;
-        wander.ForceIdle();
+        wander.SetWanderEnabled(false);
+        wander.ResetToIdle();
 
         clickPauseTimer = clickQuackDuration;
-
         DuckPointsManager.Instance?.AddPoints(clickQuackPoints);
-
-        // FUTURE: play grounded click quack animation here
-        // FUTURE: play grounded click quack sound here
-    }
-
-    public void TriggerAirClickQuack()
-    {
-        LastClickWasAir = true;
-
-        wander.enableWander = false;
-
-        clickPauseTimer = clickQuackDuration;
-
-        DuckPointsManager.Instance?.AddPoints(clickQuackPoints);
-
-        // FUTURE: play air click quack animation here
-        // FUTURE: play air click quack sound here
     }
 
     void HandleClickPause()
@@ -90,9 +68,8 @@ public class DuckQuack : MonoBehaviour
             return;
 
         clickPauseTimer = 0f;
-
-        wander.ForceIdle();
-        wander.enableWander = true;
+        wander.ResetToIdle();
+        wander.SetWanderEnabled(true);
 
         ResetRandomQuackTimer();
     }
@@ -117,9 +94,6 @@ public class DuckQuack : MonoBehaviour
     void TriggerRandomQuack()
     {
         DuckPointsManager.Instance?.AddPoints(randomQuackPoints);
-
-        // FUTURE: temporary random quack animation here
-        // FUTURE: play random quack sound here
     }
 
     void HandleBounce(SimpleGravity.BounceType bounceType, float impactSpeed)
@@ -128,12 +102,10 @@ public class DuckQuack : MonoBehaviour
             return;
 
         if (bounceType == SimpleGravity.BounceType.SideWall ||
-            bounceType == SimpleGravity.BounceType.Ground ||
-            bounceType == SimpleGravity.BounceType.Ceiling)
+            bounceType == SimpleGravity.BounceType.Ceiling ||
+            bounceType == SimpleGravity.BounceType.Ground)
         {
             DuckPointsManager.Instance?.AddPoints(randomQuackPoints);
-
-            // FUTURE: bounce sound / effect here
         }
     }
 
