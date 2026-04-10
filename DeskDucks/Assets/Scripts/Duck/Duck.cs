@@ -6,6 +6,7 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
     private SimpleGravity gravity;
     private DuckWander wander;
     private DuckQuack quack;
+    private DuckStateController stateController;
 
     private Vector3 dragOffset;
     private bool waitingForLandingReset;
@@ -15,10 +16,22 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
         gravity = GetComponent<SimpleGravity>();
         wander = GetComponent<DuckWander>();
         quack = GetComponent<DuckQuack>();
+        stateController = GetComponent<DuckStateController>();
     }
 
     void Update()
     {
+        if (gravity == null)
+            return;
+
+        if (!gravity.IsGrounded &&
+            stateController != null &&
+            stateController.CurrentState != DuckStateController.DuckState.Dragged &&
+            stateController.CurrentState != DuckStateController.DuckState.ClickQuack)
+        {
+            stateController.SetStateImmediate(DuckStateController.DuckState.Airborne);
+        }
+
         if (!waitingForLandingReset)
             return;
 
@@ -42,11 +55,17 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
         if (!gravity.IsGrounded)
             return;
 
+        if (stateController != null && !stateController.CanStartClickQuack)
+            return;
+
         quack.TriggerGroundClickQuack();
     }
 
     public void OnDragStart(Vector2 worldPos)
     {
+        if (stateController != null && !stateController.CanStartDrag)
+            return;
+
         dragOffset = transform.position - (Vector3)worldPos;
 
         gravity.ResetVelocity();
@@ -55,6 +74,8 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
 
         if (wander != null)
             wander.SetWanderEnabled(false);
+
+        stateController?.SetStateImmediate(DuckStateController.DuckState.Dragged);
     }
 
     public void OnDrag(Vector2 worldPos)
@@ -67,5 +88,7 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
         gravity.SetGravityEnabled(true);
         gravity.SetVelocity(velocity);
         waitingForLandingReset = true;
+
+        stateController?.SetStateImmediate(DuckStateController.DuckState.Airborne);
     }
 }

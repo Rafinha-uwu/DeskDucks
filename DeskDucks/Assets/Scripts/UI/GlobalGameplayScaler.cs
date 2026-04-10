@@ -10,18 +10,44 @@ public class GlobalGameplayScaler : MonoBehaviour
 
     void Awake()
     {
-        gameplaySpace = GameplaySpaceManager.Instance;
-
         if (captureBaseScaleOnAwake)
             baseLocalScale = transform.localScale;
 
+        gameplaySpace = GameplaySpaceManager.Instance;
         ApplyScale(true);
+    }
+
+    void OnEnable()
+    {
+        gameplaySpace = GameplaySpaceManager.Instance;
+
+        if (gameplaySpace != null)
+            gameplaySpace.OnGlobalGameScaleChanged += HandleScaleChanged;
+
+        ApplyScale(true);
+    }
+
+    void OnDisable()
+    {
+        if (gameplaySpace != null)
+            gameplaySpace.OnGlobalGameScaleChanged -= HandleScaleChanged;
     }
 
     void Update()
     {
         if (gameplaySpace == null)
+        {
             gameplaySpace = GameplaySpaceManager.Instance;
+
+            if (gameplaySpace != null)
+            {
+                gameplaySpace.OnGlobalGameScaleChanged -= HandleScaleChanged;
+                gameplaySpace.OnGlobalGameScaleChanged += HandleScaleChanged;
+                ApplyScale(true);
+            }
+
+            return;
+        }
 
         ApplyScale(false);
     }
@@ -30,6 +56,11 @@ public class GlobalGameplayScaler : MonoBehaviour
     {
         if (!Application.isPlaying && captureBaseScaleOnAwake)
             baseLocalScale = transform.localScale;
+    }
+
+    void HandleScaleChanged(float newScale)
+    {
+        ApplyScale(true);
     }
 
     void ApplyScale(bool force)

@@ -31,9 +31,22 @@ public class DuckPointsManager : MonoBehaviour
         UpdateUI();
     }
 
+    public bool SpendPoints(int amount)
+    {
+        if (amount <= 0)
+            return true;
+
+        if (quackPoints < amount)
+            return false;
+
+        quackPoints -= amount;
+        UpdateUI();
+        return true;
+    }
+
     public void SetPoints(int amount)
     {
-        quackPoints = amount;
+        quackPoints = Mathf.Max(0, amount);
         UpdateUI();
     }
 

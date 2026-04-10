@@ -1,11 +1,18 @@
 using UnityEngine;
 
 [RequireComponent(typeof(SimpleGravity))]
-[RequireComponent(typeof(DuckBounds))]
+[RequireComponent(typeof(WorldBounds))]
 public class DuckWander : MonoBehaviour
 {
+    private enum State
+    {
+        Idle,
+        Walking,
+        SlowingDown
+    }
+
     [Header("State Control")]
-    public bool enableWander = true;
+    [SerializeField] private bool enableWander = true;
 
     [Header("References")]
     [SerializeField] private Transform visualRoot;
@@ -39,27 +46,24 @@ public class DuckWander : MonoBehaviour
     [SerializeField] private float minJumpForwardMultiplier = 1.1f;
     [SerializeField] private float maxJumpForwardMultiplier = 1.8f;
 
-    private enum State
-    {
-        Idle,
-        Walking,
-        SlowingDown
-    }
-
     private SimpleGravity gravity;
-    private DuckBounds duckBounds;
+    private WorldBounds worldBounds;
     private GameplaySpaceManager gameplaySpace;
+    private DuckStateController stateController;
 
     private State currentState;
     private float stateTimer;
     private float currentSpeed;
     private int direction = 1;
 
+    public bool IsWanderEnabled => enableWander;
+
     void Awake()
     {
         gravity = GetComponent<SimpleGravity>();
-        duckBounds = GetComponent<DuckBounds>();
+        worldBounds = GetComponent<WorldBounds>();
         gameplaySpace = GameplaySpaceManager.Instance;
+        stateController = GetComponent<DuckStateController>();
 
         if (visualRoot == null)
             visualRoot = transform.Find("VisualRoot");
@@ -80,6 +84,9 @@ public class DuckWander : MonoBehaviour
 
         if (gameplaySpace == null)
             gameplaySpace = GameplaySpaceManager.Instance;
+
+        if (gameplaySpace == null)
+            return;
 
         stateTimer -= Time.deltaTime;
 
@@ -105,6 +112,9 @@ public class DuckWander : MonoBehaviour
     public void SetWanderEnabled(bool value)
     {
         enableWander = value;
+
+        if (!enableWander)
+            gravity.StopHorizontalMovement();
     }
 
     public void ResetToIdle()
@@ -113,6 +123,19 @@ public class DuckWander : MonoBehaviour
         stateTimer = Random.Range(minIdleTime, maxIdleTime);
         currentSpeed = 0f;
         gravity.StopHorizontalMovement();
+        stateController?.SetStateImmediate(DuckStateController.DuckState.Idle);
+    }
+
+    public void StartSlowDownFromDirection(float moveDirection, float moveSpeed)
+    {
+        direction = moveDirection < 0f ? -1 : 1;
+        currentSpeed = Mathf.Max(0f, moveSpeed);
+        currentState = State.SlowingDown;
+
+        FlipVisual(direction);
+
+        if (currentSpeed <= 0.01f)
+            ResetToIdle();
     }
 
     void EnterWalkingState()
@@ -123,6 +146,7 @@ public class DuckWander : MonoBehaviour
         direction = Random.value < 0.5f ? -1 : 1;
 
         FlipVisual(direction);
+        stateController?.SetStateImmediate(DuckStateController.DuckState.Walking);
     }
 
     void EnterSlowingDownState()
@@ -165,15 +189,16 @@ public class DuckWander : MonoBehaviour
         float jumpForward = currentSpeed * Random.Range(minJumpForwardMultiplier, maxJumpForwardMultiplier);
 
         gravity.SetVelocity(new Vector2(direction * jumpForward, jumpY));
+        stateController?.SetStateImmediate(DuckStateController.DuckState.Airborne);
     }
 
     void HandleScreenEdges()
     {
-        if (gameplaySpace == null || duckBounds == null)
+        if (gameplaySpace == null || worldBounds == null)
             return;
 
-        float left = gameplaySpace.GetMinX(duckBounds.ScaledHalfWidth);
-        float right = gameplaySpace.GetMaxX(duckBounds.ScaledHalfWidth);
+        float left = gameplaySpace.GetMinX(worldBounds.ScaledHalfWidth);
+        float right = gameplaySpace.GetMaxX(worldBounds.ScaledHalfWidth);
 
         if (transform.position.x <= left)
             direction = 1;

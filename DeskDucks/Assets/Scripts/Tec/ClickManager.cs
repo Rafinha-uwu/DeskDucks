@@ -19,6 +19,7 @@ public class ClickManager : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private LayerMask clickableLayer;
+    [SerializeField] private WorldObjectContextMenu contextMenu;
 
     [Header("Drag Settings")]
     [SerializeField] private float dragThreshold = 0.15f;
@@ -45,6 +46,20 @@ public class ClickManager : MonoBehaviour
         window = GetComponent<WindowController>();
         gameplaySpace = GetComponent<GameplaySpaceManager>();
         eventSystem = EventSystem.current;
+    }
+
+    void OnEnable()
+    {
+        GlobalMouseHook.OnMouseDown += HandleDown;
+        GlobalMouseHook.OnMouseUp += HandleUp;
+        GlobalMouseHook.OnRightMouseDown += HandleRightDown;
+    }
+
+    void OnDisable()
+    {
+        GlobalMouseHook.OnMouseDown -= HandleDown;
+        GlobalMouseHook.OnMouseUp -= HandleUp;
+        GlobalMouseHook.OnRightMouseDown -= HandleRightDown;
     }
 
     void Update()
@@ -86,18 +101,6 @@ public class ClickManager : MonoBehaviour
         lastWorld = world;
     }
 
-    void OnEnable()
-    {
-        GlobalMouseHook.OnMouseDown += HandleDown;
-        GlobalMouseHook.OnMouseUp += HandleUp;
-    }
-
-    void OnDisable()
-    {
-        GlobalMouseHook.OnMouseDown -= HandleDown;
-        GlobalMouseHook.OnMouseUp -= HandleUp;
-    }
-
     void HandleDown(Vector2 screenPos)
     {
         if (gameplaySpace == null)
@@ -106,12 +109,17 @@ public class ClickManager : MonoBehaviour
         if (eventSystem == null)
             eventSystem = EventSystem.current;
 
-        if (IsPointerOverUi(screenPos))
+        bool isOverUi = IsPointerOverUi(screenPos);
+
+        if (isOverUi)
         {
             ClearInteractionState();
             window.SetClickThrough(false);
             return;
         }
+
+        if (contextMenu != null && contextMenu.IsVisible())
+            contextMenu.Hide();
 
         Vector2 world = gameplaySpace.GlobalScreenToWorld(screenPos);
         Collider2D hit = Physics2D.OverlapPoint(world, clickableLayer);
@@ -146,6 +154,36 @@ public class ClickManager : MonoBehaviour
             currentDraggable.OnDragEnd(velocity * throwMultiplier);
 
         ClearInteractionState();
+    }
+
+    void HandleRightDown(Vector2 screenPos)
+    {
+        if (gameplaySpace == null)
+            return;
+
+        if (eventSystem == null)
+            eventSystem = EventSystem.current;
+
+        if (IsPointerOverUi(screenPos))
+            return;
+
+        Vector2 world = gameplaySpace.GlobalScreenToWorld(screenPos);
+        Collider2D hit = Physics2D.OverlapPoint(world, clickableLayer);
+
+        if (hit == null)
+        {
+            contextMenu?.Hide();
+            return;
+        }
+
+        IWorldContextActions contextTarget = hit.GetComponent<IWorldContextActions>();
+        if (contextTarget == null || !contextTarget.CanShowContextMenu())
+        {
+            contextMenu?.Hide();
+            return;
+        }
+
+        contextMenu?.Show(contextTarget);
     }
 
     void ClearInteractionState()

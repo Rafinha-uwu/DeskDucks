@@ -19,6 +19,7 @@ public class DuckQuack : MonoBehaviour
 
     private DuckWander wander;
     private SimpleGravity gravity;
+    private DuckStateController stateController;
 
     private float clickPauseTimer;
     private float randomQuackTimer;
@@ -29,17 +30,20 @@ public class DuckQuack : MonoBehaviour
     {
         wander = GetComponent<DuckWander>();
         gravity = GetComponent<SimpleGravity>();
+        stateController = GetComponent<DuckStateController>();
         ResetRandomQuackTimer();
     }
 
     void OnEnable()
     {
-        gravity.OnBounce += HandleBounce;
+        if (gravity != null)
+            gravity.OnBounce += HandleBounce;
     }
 
     void OnDisable()
     {
-        gravity.OnBounce -= HandleBounce;
+        if (gravity != null)
+            gravity.OnBounce -= HandleBounce;
     }
 
     void Update()
@@ -50,11 +54,15 @@ public class DuckQuack : MonoBehaviour
 
     public void TriggerGroundClickQuack()
     {
+        if (wander == null)
+            return;
+
         wander.SetWanderEnabled(false);
         wander.ResetToIdle();
 
         clickPauseTimer = clickQuackDuration;
         DuckPointsManager.Instance?.AddPoints(clickQuackPoints);
+        stateController?.SetStateImmediate(DuckStateController.DuckState.ClickQuack);
     }
 
     void HandleClickPause()
@@ -70,7 +78,6 @@ public class DuckQuack : MonoBehaviour
         clickPauseTimer = 0f;
         wander.ResetToIdle();
         wander.SetWanderEnabled(true);
-
         ResetRandomQuackTimer();
     }
 
@@ -79,7 +86,7 @@ public class DuckQuack : MonoBehaviour
         if (!enableRandomQuacks)
             return;
 
-        if (!wander.enableWander || clickPauseTimer > 0f)
+        if (!wander.IsWanderEnabled || clickPauseTimer > 0f)
             return;
 
         randomQuackTimer -= Time.deltaTime;

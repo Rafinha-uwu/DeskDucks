@@ -24,6 +24,7 @@ public class DraggableUIPanel : MonoBehaviour, IPointerDownHandler, IDragHandler
             canvasRect = canvas.transform as RectTransform;
 
         LoadPosition();
+        ClampToCanvas();
     }
 
     public void OnPointerDown(PointerEventData eventData)
@@ -54,6 +55,7 @@ public class DraggableUIPanel : MonoBehaviour, IPointerDownHandler, IDragHandler
         );
 
         panelToMove.anchoredPosition = localPointerPosition + pointerOffset;
+        ClampToCanvas();
         SavePosition();
     }
 
@@ -75,5 +77,31 @@ public class DraggableUIPanel : MonoBehaviour, IPointerDownHandler, IDragHandler
         PlayerPrefs.SetFloat(PanelPosXKey, panelToMove.anchoredPosition.x);
         PlayerPrefs.SetFloat(PanelPosYKey, panelToMove.anchoredPosition.y);
         PlayerPrefs.Save();
+    }
+
+    void ClampToCanvas()
+    {
+        if (panelToMove == null || canvasRect == null)
+            return;
+
+        Vector3[] canvasCorners = new Vector3[4];
+        Vector3[] panelCorners = new Vector3[4];
+
+        canvasRect.GetWorldCorners(canvasCorners);
+        panelToMove.GetWorldCorners(panelCorners);
+
+        Vector3 offset = Vector3.zero;
+
+        if (panelCorners[0].x < canvasCorners[0].x)
+            offset.x = canvasCorners[0].x - panelCorners[0].x;
+        else if (panelCorners[2].x > canvasCorners[2].x)
+            offset.x = canvasCorners[2].x - panelCorners[2].x;
+
+        if (panelCorners[0].y < canvasCorners[0].y)
+            offset.y = canvasCorners[0].y - panelCorners[0].y;
+        else if (panelCorners[2].y > canvasCorners[2].y)
+            offset.y = canvasCorners[2].y - panelCorners[2].y;
+
+        panelToMove.position += offset;
     }
 }

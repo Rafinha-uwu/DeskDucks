@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-[RequireComponent(typeof(DuckBounds))]
+[RequireComponent(typeof(WorldBounds))]
 public class SimpleGravity : MonoBehaviour
 {
     public enum BounceType
@@ -27,7 +27,7 @@ public class SimpleGravity : MonoBehaviour
     [SerializeField] private float minFallSpeedForGroundBounce = 2.5f;
 
     private Vector2 velocity;
-    private DuckBounds duckBounds;
+    private WorldBounds worldBounds;
     private GameplaySpaceManager gameplaySpace;
 
     private bool isGrounded;
@@ -38,26 +38,29 @@ public class SimpleGravity : MonoBehaviour
 
     void Awake()
     {
-        duckBounds = GetComponent<DuckBounds>();
+        worldBounds = GetComponent<WorldBounds>();
         gameplaySpace = GameplaySpaceManager.Instance;
     }
 
     void Update()
     {
+        if (worldBounds == null)
+            return;
+
         if (gameplaySpace == null)
             gameplaySpace = GameplaySpaceManager.Instance;
 
-        if (gameplaySpace == null || duckBounds == null)
+        if (gameplaySpace == null)
             return;
 
         velocity.y += gravity * Time.deltaTime;
 
         Vector3 pos = transform.position + (Vector3)(velocity * Time.deltaTime);
 
-        float minX = gameplaySpace.GetMinX(duckBounds.ScaledHalfWidth);
-        float maxX = gameplaySpace.GetMaxX(duckBounds.ScaledHalfWidth);
-        float groundY = gameplaySpace.GetGroundY(duckBounds.ScaledHalfHeight);
-        float topY = gameplaySpace.GetTopY(duckBounds.ScaledHalfHeight);
+        float minX = gameplaySpace.GetMinX(worldBounds.ScaledHalfWidth);
+        float maxX = gameplaySpace.GetMaxX(worldBounds.ScaledHalfWidth);
+        float groundY = gameplaySpace.GetGroundY(worldBounds.ScaledHalfHeight);
+        float topY = gameplaySpace.GetTopY(worldBounds.ScaledHalfHeight);
 
         isGrounded = false;
 
@@ -72,8 +75,7 @@ public class SimpleGravity : MonoBehaviour
                 OnBounce?.Invoke(BounceType.SideWall, impactSpeed);
             }
         }
-
-        if (pos.x > maxX)
+        else if (pos.x > maxX)
         {
             float impactSpeed = Mathf.Abs(velocity.x);
             pos.x = maxX;
@@ -159,35 +161,5 @@ public class SimpleGravity : MonoBehaviour
     public void SetGravityEnabled(bool value)
     {
         enabled = value;
-    }
-
-    public Vector2 GetNormalizedPosition()
-    {
-        if (gameplaySpace == null)
-            gameplaySpace = GameplaySpaceManager.Instance;
-
-        if (gameplaySpace == null)
-            return Vector2.zero;
-
-        Vector2 worldPosition = isGrounded
-            ? new Vector2(transform.position.x, gameplaySpace.GetGroundY(duckBounds.ScaledHalfHeight))
-            : (Vector2)transform.position;
-
-        return gameplaySpace.WorldToNormalized(worldPosition, duckBounds);
-    }
-
-    public void ApplyNormalizedPosition(Vector2 normalizedPosition, bool grounded)
-    {
-        if (gameplaySpace == null)
-            gameplaySpace = GameplaySpaceManager.Instance;
-
-        if (gameplaySpace == null)
-            return;
-
-        transform.position = gameplaySpace.NormalizedToWorld(normalizedPosition, duckBounds, grounded);
-        isGrounded = grounded;
-
-        if (grounded)
-            velocity.y = 0f;
     }
 }

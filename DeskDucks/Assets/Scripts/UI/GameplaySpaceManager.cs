@@ -1,11 +1,9 @@
+using System;
 using UnityEngine;
 
 public class GameplaySpaceManager : MonoBehaviour
 {
     public static GameplaySpaceManager Instance { get; private set; }
-
-    private const string GlobalScaleKey = "Settings_GlobalGameScale";
-    private const string GroundOffsetKey = "Settings_GroundOffset";
 
     [Header("References")]
     [SerializeField] private Camera targetCamera;
@@ -15,6 +13,9 @@ public class GameplaySpaceManager : MonoBehaviour
     [SerializeField] private float groundOffset = 0.35f;
     [SerializeField] private float topPadding = 0f;
     [SerializeField] private float sidePadding = 0f;
+
+    public event Action<float> OnGlobalGameScaleChanged;
+    public event Action<float> OnGroundOffsetChanged;
 
     public Camera TargetCamera
     {
@@ -47,8 +48,6 @@ public class GameplaySpaceManager : MonoBehaviour
 
         if (targetCamera == null)
             targetCamera = Camera.main;
-
-        LoadSettings();
     }
 
     void OnValidate()
@@ -58,14 +57,22 @@ public class GameplaySpaceManager : MonoBehaviour
 
     public void SetGlobalGameScale(float value)
     {
-        globalGameScale = Mathf.Max(0.1f, value);
-        SaveSettings();
+        value = Mathf.Max(0.1f, value);
+
+        if (Mathf.Approximately(globalGameScale, value))
+            return;
+
+        globalGameScale = value;
+        OnGlobalGameScaleChanged?.Invoke(globalGameScale);
     }
 
     public void SetGroundOffset(float value)
     {
+        if (Mathf.Approximately(groundOffset, value))
+            return;
+
         groundOffset = value;
-        SaveSettings();
+        OnGroundOffsetChanged?.Invoke(groundOffset);
     }
 
     public float GetGroundY(float scaledHalfHeight)
@@ -103,7 +110,7 @@ public class GameplaySpaceManager : MonoBehaviour
         return ScreenToWorld(new Vector2(globalScreenPos.x, flippedY));
     }
 
-    public Vector2 WorldToNormalized(Vector2 worldPos, DuckBounds bounds)
+    public Vector2 WorldToNormalized(Vector2 worldPos, WorldBounds bounds)
     {
         float halfWidth = bounds != null ? bounds.ScaledHalfWidth : 0f;
         float halfHeight = bounds != null ? bounds.ScaledHalfHeight : 0f;
@@ -119,7 +126,7 @@ public class GameplaySpaceManager : MonoBehaviour
         return new Vector2(normalizedX, normalizedY);
     }
 
-    public Vector2 NormalizedToWorld(Vector2 normalizedPos, DuckBounds bounds, bool snapToGround = false)
+    public Vector2 NormalizedToWorld(Vector2 normalizedPos, WorldBounds bounds, bool snapToGround = false)
     {
         float halfWidth = bounds != null ? bounds.ScaledHalfWidth : 0f;
         float halfHeight = bounds != null ? bounds.ScaledHalfHeight : 0f;
@@ -135,21 +142,6 @@ public class GameplaySpaceManager : MonoBehaviour
             : Mathf.Lerp(groundY, topY, Mathf.Clamp01(normalizedPos.y));
 
         return new Vector2(x, y);
-    }
-
-    void LoadSettings()
-    {
-        globalGameScale = PlayerPrefs.GetFloat(GlobalScaleKey, globalGameScale);
-        globalGameScale = Mathf.Max(0.1f, globalGameScale);
-
-        groundOffset = PlayerPrefs.GetFloat(GroundOffsetKey, groundOffset);
-    }
-
-    void SaveSettings()
-    {
-        PlayerPrefs.SetFloat(GlobalScaleKey, globalGameScale);
-        PlayerPrefs.SetFloat(GroundOffsetKey, groundOffset);
-        PlayerPrefs.Save();
     }
 
     Vector3 ViewportToWorld(float x, float y)

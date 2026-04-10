@@ -22,9 +22,11 @@ public class GlobalMouseHook : MonoBehaviour
     private const int WH_MOUSE_LL = 14;
     private const int WM_LBUTTONDOWN = 0x0201;
     private const int WM_LBUTTONUP = 0x0202;
+    private const int WM_RBUTTONDOWN = 0x0204;
 
     public static event Action<Vector2> OnMouseDown;
     public static event Action<Vector2> OnMouseUp;
+    public static event Action<Vector2> OnRightMouseDown;
 
     private IntPtr hookId = IntPtr.Zero;
     private LowLevelMouseProc proc;
@@ -33,8 +35,9 @@ public class GlobalMouseHook : MonoBehaviour
 
     private enum MouseEventType
     {
-        Down,
-        Up
+        LeftDown,
+        LeftUp,
+        RightDown
     }
 
     private struct MouseEventData
@@ -88,7 +91,7 @@ public class GlobalMouseHook : MonoBehaviour
                 {
                     eventQueue.Enqueue(new MouseEventData
                     {
-                        type = MouseEventType.Down,
+                        type = MouseEventType.LeftDown,
                         position = pos
                     });
                 }
@@ -96,7 +99,15 @@ public class GlobalMouseHook : MonoBehaviour
                 {
                     eventQueue.Enqueue(new MouseEventData
                     {
-                        type = MouseEventType.Up,
+                        type = MouseEventType.LeftUp,
+                        position = pos
+                    });
+                }
+                else if (wParam == (IntPtr)WM_RBUTTONDOWN)
+                {
+                    eventQueue.Enqueue(new MouseEventData
+                    {
+                        type = MouseEventType.RightDown,
                         position = pos
                     });
                 }
@@ -114,10 +125,20 @@ public class GlobalMouseHook : MonoBehaviour
             {
                 MouseEventData e = eventQueue.Dequeue();
 
-                if (e.type == MouseEventType.Down)
-                    OnMouseDown?.Invoke(e.position);
-                else
-                    OnMouseUp?.Invoke(e.position);
+                switch (e.type)
+                {
+                    case MouseEventType.LeftDown:
+                        OnMouseDown?.Invoke(e.position);
+                        break;
+
+                    case MouseEventType.LeftUp:
+                        OnMouseUp?.Invoke(e.position);
+                        break;
+
+                    case MouseEventType.RightDown:
+                        OnRightMouseDown?.Invoke(e.position);
+                        break;
+                }
             }
         }
     }
