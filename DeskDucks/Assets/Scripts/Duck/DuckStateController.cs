@@ -10,7 +10,8 @@ public class DuckStateController : MonoBehaviour
         ClickQuack,
         Dragged,
         Airborne,
-        LandingRecovery
+        LandingRecovery,
+        Sleeping
     }
 
     public DuckState CurrentState { get; private set; } = DuckState.Idle;
@@ -24,13 +25,16 @@ public class DuckStateController : MonoBehaviour
     public bool IsBusyState =>
         CurrentState == DuckState.ClickQuack ||
         CurrentState == DuckState.Dragged ||
-        CurrentState == DuckState.LandingRecovery;
+        CurrentState == DuckState.LandingRecovery ||
+        CurrentState == DuckState.Sleeping;
 
     public bool CanStartDrag =>
-        CurrentState != DuckState.Dragged;
+        CurrentState != DuckState.Dragged &&
+        CurrentState != DuckState.Sleeping;
 
     public bool CanStartClickQuack =>
-        CurrentState != DuckState.Dragged;
+        CurrentState != DuckState.Dragged &&
+        CurrentState != DuckState.Sleeping;
 
     public bool SetState(DuckState newState)
     {
@@ -67,19 +71,27 @@ public class DuckStateController : MonoBehaviour
             case DuckState.ClickQuack:
                 return to == DuckState.Idle ||
                        to == DuckState.Airborne ||
-                       to == DuckState.LandingRecovery;
+                       to == DuckState.LandingRecovery ||
+                       to == DuckState.Sleeping;
 
             case DuckState.Airborne:
                 return to == DuckState.Idle ||
                        to == DuckState.Walking ||
                        to == DuckState.ClickQuack ||
                        to == DuckState.LandingRecovery ||
-                       to == DuckState.Dragged;
+                       to == DuckState.Dragged ||
+                       to == DuckState.Sleeping;
 
             case DuckState.LandingRecovery:
                 return to == DuckState.Idle ||
                        to == DuckState.Walking ||
                        to == DuckState.ClickQuack ||
+                       to == DuckState.Dragged ||
+                       to == DuckState.Sleeping;
+
+            case DuckState.Sleeping:
+                return to == DuckState.Idle ||
+                       to == DuckState.Walking ||
                        to == DuckState.Dragged;
 
             case DuckState.Idle:

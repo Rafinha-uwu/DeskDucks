@@ -18,17 +18,20 @@ public class DuckAnimationController : MonoBehaviour
 
     void OnEnable()
     {
-        stateController.OnStateChanged += HandleStateChanged;
+        if (stateController != null)
+            stateController.OnStateChanged += HandleStateChanged;
     }
 
     void OnDisable()
     {
-        stateController.OnStateChanged -= HandleStateChanged;
+        if (stateController != null)
+            stateController.OnStateChanged -= HandleStateChanged;
     }
 
     void Start()
     {
-        ApplyState(stateController.CurrentState);
+        if (stateController != null)
+            ApplyState(stateController.CurrentState);
     }
 
     void HandleStateChanged(DuckStateController.DuckState previousState, DuckStateController.DuckState newState)
@@ -77,6 +80,12 @@ public class DuckAnimationController : MonoBehaviour
                 // Later: play/set your landing animation here.
                 // Example later:
                 // animator.Play("Land");
+                break;
+
+            case DuckStateController.DuckState.Sleeping:
+                // Later: play/set your sleeping animation here.
+                // Example later:
+                // animator.Play("Sleep");
                 break;
         }
     }

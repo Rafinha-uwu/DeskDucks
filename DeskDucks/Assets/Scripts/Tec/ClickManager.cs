@@ -20,6 +20,7 @@ public class ClickManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private LayerMask clickableLayer;
     [SerializeField] private WorldObjectContextMenu contextMenu;
+    [SerializeField] private WorldPlacementManager placementManager;
 
     [Header("Drag Settings")]
     [SerializeField] private float dragThreshold = 0.15f;
@@ -46,6 +47,9 @@ public class ClickManager : MonoBehaviour
         window = GetComponent<WindowController>();
         gameplaySpace = GetComponent<GameplaySpaceManager>();
         eventSystem = EventSystem.current;
+
+        if (placementManager == null)
+            placementManager = WorldPlacementManager.Instance;
     }
 
     void OnEnable()
@@ -69,6 +73,15 @@ public class ClickManager : MonoBehaviour
 
         if (eventSystem == null)
             eventSystem = EventSystem.current;
+
+        if (placementManager == null)
+            placementManager = WorldPlacementManager.Instance;
+
+        if (placementManager != null && placementManager.IsPlacing)
+        {
+            window.SetClickThrough(false);
+            return;
+        }
 
         Vector2 globalMouseScreen = GetGlobalMouseScreenPosition();
         Vector2 world = gameplaySpace.GlobalScreenToWorld(globalMouseScreen);
@@ -109,6 +122,17 @@ public class ClickManager : MonoBehaviour
         if (eventSystem == null)
             eventSystem = EventSystem.current;
 
+        if (placementManager == null)
+            placementManager = WorldPlacementManager.Instance;
+
+        if (placementManager != null && placementManager.IsPlacing)
+        {
+            ClearInteractionState();
+            contextMenu?.Hide();
+            placementManager.ConfirmCurrentPlacement();
+            return;
+        }
+
         bool isOverUi = IsPointerOverUi(screenPos);
 
         if (isOverUi)
@@ -148,6 +172,12 @@ public class ClickManager : MonoBehaviour
 
     void HandleUp(Vector2 screenPos)
     {
+        if (placementManager == null)
+            placementManager = WorldPlacementManager.Instance;
+
+        if (placementManager != null && placementManager.IsPlacing)
+            return;
+
         if (isClickCandidate && currentClickable != null)
             currentClickable.OnClick();
         else if (dragging && currentDraggable != null)
@@ -163,6 +193,17 @@ public class ClickManager : MonoBehaviour
 
         if (eventSystem == null)
             eventSystem = EventSystem.current;
+
+        if (placementManager == null)
+            placementManager = WorldPlacementManager.Instance;
+
+        if (placementManager != null && placementManager.IsPlacing)
+        {
+            ClearInteractionState();
+            contextMenu?.Hide();
+            placementManager.ConfirmCurrentPlacement();
+            return;
+        }
 
         if (IsPointerOverUi(screenPos))
             return;

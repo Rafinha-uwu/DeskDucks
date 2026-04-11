@@ -25,9 +25,11 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
             return;
 
         if (!gravity.IsGrounded &&
+            gravity.enabled &&
             stateController != null &&
             stateController.CurrentState != DuckStateController.DuckState.Dragged &&
-            stateController.CurrentState != DuckStateController.DuckState.ClickQuack)
+            stateController.CurrentState != DuckStateController.DuckState.ClickQuack &&
+            stateController.CurrentState != DuckStateController.DuckState.Sleeping)
         {
             stateController.SetStateImmediate(DuckStateController.DuckState.Airborne);
         }

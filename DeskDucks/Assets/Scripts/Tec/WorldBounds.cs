@@ -12,7 +12,7 @@ public class WorldBounds : MonoBehaviour
     public float ScaledHalfWidth => scaledHalfWidth;
     public float ScaledHalfHeight => scaledHalfHeight;
 
-    void Awake()
+    void Awake() 
     {
         RefreshIfNeeded(true);
     }
