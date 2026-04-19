@@ -10,8 +10,10 @@ public class DuckPointsManager : MonoBehaviour
 
     [Header("Points")]
     [SerializeField] private int quackPoints = 0;
+    [SerializeField] private int lifetimePointsEarned = 0;
 
     public int QuackPoints => quackPoints;
+    public int LifetimePointsEarned => lifetimePointsEarned;
 
     void Awake()
     {
@@ -27,7 +29,11 @@ public class DuckPointsManager : MonoBehaviour
 
     public void AddPoints(int amount)
     {
+        if (amount <= 0)
+            return;
+
         quackPoints += amount;
+        lifetimePointsEarned += amount;
         UpdateUI();
     }
 
@@ -50,9 +56,15 @@ public class DuckPointsManager : MonoBehaviour
         UpdateUI();
     }
 
+    public void SetLifetimePointsEarned(int amount)
+    {
+        lifetimePointsEarned = Mathf.Max(0, amount);
+    }
+
     public void ResetPoints()
     {
         quackPoints = 0;
+        lifetimePointsEarned = 0;
         UpdateUI();
     }
 

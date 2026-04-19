@@ -71,6 +71,24 @@ public class DuckSleep : MonoBehaviour
         return true;
     }
 
+    public void CancelSleepForExternalControl()
+    {
+        if (!isSleeping)
+            return;
+
+        isSleeping = false;
+        currentBed = null;
+
+        if (gravity != null)
+        {
+            gravity.SetGravityEnabled(true);
+            gravity.ResetVelocity();
+        }
+
+        if (wander != null)
+            wander.SetWanderEnabled(false);
+    }
+
     public void WakeUp()
     {
         if (!isSleeping)

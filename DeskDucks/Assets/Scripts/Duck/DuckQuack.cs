@@ -6,16 +6,15 @@ public class DuckQuack : MonoBehaviour
 {
     [Header("Click Quack")]
     [SerializeField] private float clickQuackDuration = 1f;
-    [SerializeField] private int clickQuackPoints = 1;
 
     [Header("Random Quack")]
     [SerializeField] private bool enableRandomQuacks = true;
     [SerializeField] private float minRandomQuackDelay = 5f;
     [SerializeField] private float maxRandomQuackDelay = 20f;
-    [SerializeField] private int randomQuackPoints = 1;
 
     [Header("Bounce Points")]
     [SerializeField] private bool enableBouncePoints = true;
+    [SerializeField] private float minImpactSpeedForBouncePoints = 1.5f;
 
     private DuckWander wander;
     private SimpleGravity gravity;
@@ -61,7 +60,7 @@ public class DuckQuack : MonoBehaviour
         wander.ResetToIdle();
 
         clickPauseTimer = clickQuackDuration;
-        DuckPointsManager.Instance?.AddPoints(clickQuackPoints);
+        DuckPointsManager.Instance?.AddPoints(GetUpgradePoints(UpgradeType.DuckClick));
         stateController?.SetStateImmediate(DuckStateController.DuckState.ClickQuack);
     }
 
@@ -100,7 +99,7 @@ public class DuckQuack : MonoBehaviour
 
     void TriggerRandomQuack()
     {
-        DuckPointsManager.Instance?.AddPoints(randomQuackPoints);
+        DuckPointsManager.Instance?.AddPoints(GetUpgradePoints(UpgradeType.RandomQuack));
     }
 
     void HandleBounce(SimpleGravity.BounceType bounceType, float impactSpeed)
@@ -108,12 +107,29 @@ public class DuckQuack : MonoBehaviour
         if (!enableBouncePoints)
             return;
 
+        if (gravity == null || gravity.IsGrounded)
+            return;
+
+        if (wander != null && wander.IsWanderEnabled && gravity.Velocity.y <= 0.01f)
+            return;
+
+        if (impactSpeed < minImpactSpeedForBouncePoints)
+            return;
+
         if (bounceType == SimpleGravity.BounceType.SideWall ||
             bounceType == SimpleGravity.BounceType.Ceiling ||
             bounceType == SimpleGravity.BounceType.Ground)
         {
-            DuckPointsManager.Instance?.AddPoints(randomQuackPoints);
+            DuckPointsManager.Instance?.AddPoints(GetUpgradePoints(UpgradeType.WallBounce));
         }
+    }
+
+    int GetUpgradePoints(UpgradeType type)
+    {
+        if (DuckUpgradeManager.Instance == null)
+            return 1;
+
+        return DuckUpgradeManager.Instance.GetCurrentPointsFor(type);
     }
 
     void ResetRandomQuackTimer()

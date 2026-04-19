@@ -29,8 +29,7 @@ public class DuckStateController : MonoBehaviour
         CurrentState == DuckState.Sleeping;
 
     public bool CanStartDrag =>
-        CurrentState != DuckState.Dragged &&
-        CurrentState != DuckState.Sleeping;
+        CurrentState != DuckState.Dragged;
 
     public bool CanStartClickQuack =>
         CurrentState != DuckState.Dragged &&

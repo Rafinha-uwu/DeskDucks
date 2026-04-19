@@ -41,6 +41,7 @@ public class ClickManager : MonoBehaviour
     private Vector2 velocity;
 
     private readonly List<RaycastResult> uiRaycastResults = new();
+    private readonly Collider2D[] overlapResults = new Collider2D[32];
 
     void Awake()
     {
@@ -89,7 +90,7 @@ public class ClickManager : MonoBehaviour
         if (currentClickable == null && currentDraggable == null)
         {
             bool isOverUi = IsPointerOverUi(globalMouseScreen);
-            bool isOverWorldClickable = Physics2D.OverlapPoint(world, clickableLayer) != null;
+            bool isOverWorldClickable = GetTopmostClickableCollider(world) != null;
 
             window.SetClickThrough(!isOverUi && !isOverWorldClickable);
             return;
@@ -146,7 +147,7 @@ public class ClickManager : MonoBehaviour
             contextMenu.Hide();
 
         Vector2 world = gameplaySpace.GlobalScreenToWorld(screenPos);
-        Collider2D hit = Physics2D.OverlapPoint(world, clickableLayer);
+        Collider2D hit = GetTopmostClickableCollider(world);
 
         if (hit == null)
         {
@@ -209,7 +210,7 @@ public class ClickManager : MonoBehaviour
             return;
 
         Vector2 world = gameplaySpace.GlobalScreenToWorld(screenPos);
-        Collider2D hit = Physics2D.OverlapPoint(world, clickableLayer);
+        Collider2D hit = GetTopmostClickableCollider(world);
 
         if (hit == null)
         {
@@ -256,5 +257,95 @@ public class ClickManager : MonoBehaviour
         eventSystem.RaycastAll(pointerData, uiRaycastResults);
 
         return uiRaycastResults.Count > 0;
+    }
+
+    Collider2D GetTopmostClickableCollider(Vector2 worldPos)
+    {
+        int hitCount = Physics2D.OverlapPointNonAlloc(worldPos, overlapResults, clickableLayer);
+
+        if (hitCount <= 0)
+            return null;
+
+        Collider2D bestCollider = null;
+        int bestSortingLayerValue = int.MinValue;
+        int bestSortingOrder = int.MinValue;
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D candidate = overlapResults[i];
+            if (candidate == null)
+                continue;
+
+            if (!HasClickableBehavior(candidate))
+                continue;
+
+            if (!TryGetTopRenderSort(candidate, out int sortingLayerValue, out int sortingOrder))
+            {
+                sortingLayerValue = 0;
+                sortingOrder = 0;
+            }
+
+            bool isBetter =
+                bestCollider == null ||
+                sortingLayerValue > bestSortingLayerValue ||
+                (sortingLayerValue == bestSortingLayerValue && sortingOrder > bestSortingOrder);
+
+            if (!isBetter)
+                continue;
+
+            bestCollider = candidate;
+            bestSortingLayerValue = sortingLayerValue;
+            bestSortingOrder = sortingOrder;
+        }
+
+        return bestCollider;
+    }
+
+    bool HasClickableBehavior(Collider2D collider)
+    {
+        return collider.GetComponent<IClickable>() != null ||
+               collider.GetComponent<IDraggable>() != null ||
+               collider.GetComponent<IWorldContextActions>() != null;
+    }
+
+    bool TryGetTopRenderSort(Collider2D collider, out int sortingLayerValue, out int sortingOrder)
+    {
+        sortingLayerValue = int.MinValue;
+        sortingOrder = int.MinValue;
+
+        bool found = false;
+
+        Renderer[] ownAndChildren = collider.GetComponentsInChildren<Renderer>(true);
+        Renderer[] parents = collider.GetComponentsInParent<Renderer>(true);
+
+        EvaluateRendererArray(ownAndChildren, ref found, ref sortingLayerValue, ref sortingOrder);
+        EvaluateRendererArray(parents, ref found, ref sortingLayerValue, ref sortingOrder);
+
+        return found;
+    }
+
+    void EvaluateRendererArray(Renderer[] renderers, ref bool found, ref int bestLayerValue, ref int bestOrder)
+    {
+        if (renderers == null)
+            return;
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer r = renderers[i];
+            if (r == null || !r.enabled)
+                continue;
+
+            int layerValue = SortingLayer.GetLayerValueFromID(r.sortingLayerID);
+            int order = r.sortingOrder;
+
+            if (!found ||
+                layerValue > bestLayerValue ||
+                (layerValue == bestLayerValue && order > bestOrder))
+            {
+                found = true;
+                bestLayerValue = layerValue;
+                bestOrder = order;
+            }
+        }
     }
 }

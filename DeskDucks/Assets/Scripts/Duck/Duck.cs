@@ -7,6 +7,7 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
     private DuckWander wander;
     private DuckQuack quack;
     private DuckStateController stateController;
+    private DuckSleep sleep;
 
     private Vector3 dragOffset;
     private bool waitingForLandingReset;
@@ -17,6 +18,7 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
         wander = GetComponent<DuckWander>();
         quack = GetComponent<DuckQuack>();
         stateController = GetComponent<DuckStateController>();
+        sleep = GetComponent<DuckSleep>();
     }
 
     void Update()
@@ -65,6 +67,9 @@ public class Duck : MonoBehaviour, IClickable, IDraggable
 
     public void OnDragStart(Vector2 worldPos)
     {
+        if (sleep != null && sleep.IsSleeping)
+            sleep.CancelSleepForExternalControl();
+
         if (stateController != null && !stateController.CanStartDrag)
             return;
 
