@@ -155,8 +155,18 @@ public class ClickManager : MonoBehaviour
             return;
         }
 
-        currentClickable = hit.GetComponent<IClickable>();
-        currentDraggable = hit.GetComponent<IDraggable>();
+        NetworkDuck networkDuck = hit.GetComponent<NetworkDuck>();
+
+        if (networkDuck != null)
+        {
+            currentClickable = networkDuck;
+            currentDraggable = networkDuck;
+        }
+        else
+        {
+            currentClickable = hit.GetComponent<IClickable>();
+            currentDraggable = hit.GetComponent<IDraggable>();
+        }
 
         if (currentClickable == null && currentDraggable == null)
         {

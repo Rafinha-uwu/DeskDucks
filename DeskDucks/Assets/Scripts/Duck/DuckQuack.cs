@@ -16,6 +16,9 @@ public class DuckQuack : MonoBehaviour
     [SerializeField] private bool enableBouncePoints = true;
     [SerializeField] private float minImpactSpeedForBouncePoints = 1.5f;
 
+    [Header("Points")]
+    [SerializeField] private bool awardPointsToLocalManager = true;
+
     private DuckWander wander;
     private SimpleGravity gravity;
     private DuckStateController stateController;
@@ -51,6 +54,19 @@ public class DuckQuack : MonoBehaviour
         HandleRandomQuack();
     }
 
+    public void SetAwardPointsToLocalManager(bool value)
+    {
+        awardPointsToLocalManager = value;
+    }
+
+    public int GetUpgradePointsValue(UpgradeType type)
+    {
+        if (DuckUpgradeManager.Instance == null)
+            return 1;
+
+        return DuckUpgradeManager.Instance.GetCurrentPointsFor(type);
+    }
+
     public void TriggerGroundClickQuack()
     {
         if (wander == null)
@@ -60,7 +76,9 @@ public class DuckQuack : MonoBehaviour
         wander.ResetToIdle();
 
         clickPauseTimer = clickQuackDuration;
-        DuckPointsManager.Instance?.AddPoints(GetUpgradePoints(UpgradeType.DuckClick));
+
+        TryAwardLocalPoints(GetUpgradePointsValue(UpgradeType.DuckClick));
+
         stateController?.SetStateImmediate(DuckStateController.DuckState.ClickQuack);
     }
 
@@ -99,7 +117,7 @@ public class DuckQuack : MonoBehaviour
 
     void TriggerRandomQuack()
     {
-        DuckPointsManager.Instance?.AddPoints(GetUpgradePoints(UpgradeType.RandomQuack));
+        TryAwardLocalPoints(GetUpgradePointsValue(UpgradeType.RandomQuack));
     }
 
     void HandleBounce(SimpleGravity.BounceType bounceType, float impactSpeed)
@@ -120,16 +138,16 @@ public class DuckQuack : MonoBehaviour
             bounceType == SimpleGravity.BounceType.Ceiling ||
             bounceType == SimpleGravity.BounceType.Ground)
         {
-            DuckPointsManager.Instance?.AddPoints(GetUpgradePoints(UpgradeType.WallBounce));
+            TryAwardLocalPoints(GetUpgradePointsValue(UpgradeType.WallBounce));
         }
     }
 
-    int GetUpgradePoints(UpgradeType type)
+    void TryAwardLocalPoints(int amount)
     {
-        if (DuckUpgradeManager.Instance == null)
-            return 1;
+        if (!awardPointsToLocalManager)
+            return;
 
-        return DuckUpgradeManager.Instance.GetCurrentPointsFor(type);
+        DuckPointsManager.Instance?.AddPoints(amount);
     }
 
     void ResetRandomQuackTimer()
